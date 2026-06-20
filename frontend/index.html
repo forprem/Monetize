@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ZIP Intelligence Console</title>
+  <link rel="icon" href="data:," />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body class="unauthenticated">
+  <div id="auth-overlay" class="auth-overlay">
+    <div class="auth-card">
+      <h1>Sign In</h1>
+      <p class="muted">Use demo credentials to access the dashboard.</p>
+      <form id="login-form" class="stack-form">
+        <input id="login-email" type="email" placeholder="Email" value="admin@zipintel.local" required />
+        <input id="login-password" type="password" placeholder="Password" value="admin123" required />
+        <button class="primary" type="submit">Login</button>
+      </form>
+      <button id="google-login" class="secondary" type="button" disabled>Login with Google (configure OAuth)</button>
+      <p id="login-error" class="error-text hidden"></p>
+    </div>
+  </div>
+
+  <div class="page-shell hidden" id="page-shell" hidden style="display:none;">
+
+    <header class="topbar">
+      <div class="topbar-brand">
+        <span class="brand-dot"></span>
+        ZIP Intelligence
+      </div>
+      <div class="topbar-center">
+        <form id="zip-form" class="topbar-search">
+          <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/></svg>
+          <input id="zip-input" type="text" maxlength="5" placeholder="Search ZIP code…" autocomplete="off" />
+          <button class="search-btn" type="submit">Search</button>
+        </form>
+      </div>
+      <div class="topbar-right">
+        <button class="chip sm" id="settings-toggle">⚙ API Settings</button>
+        <span id="connection-status" class="status-pill idle">Waiting</span>
+        <button id="refresh-dashboard" class="primary topbar-refresh">↺ Refresh</button>
+      </div>
+    </header>
+
+    <div class="settings-panel hidden" id="settings-panel">
+      <div class="settings-inner">
+        <input id="base-url" type="text" value="http://localhost:8000" placeholder="API Base URL" />
+        <input id="api-key" type="text" value="dev_admin_key" placeholder="API Key" />
+        <div class="quick-keys">
+          <button class="chip" data-key="dev_demo_key">Pro</button>
+          <button class="chip" data-key="dev_basic_key">Basic</button>
+          <button class="chip" data-key="dev_trial_key">Trial</button>
+          <button class="chip active" data-key="dev_admin_key">Admin</button>
+        </div>
+        <label class="checkbox-row">
+          <input id="remember-config" type="checkbox" checked />
+          <span>Remember settings in this browser</span>
+        </label>
+      </div>
+    </div>
+
+    <section class="map-section">
+      <div id="zip-map" class="leaflet-map"></div>
+
+      <div class="map-layer-bar" id="layer-mode-chips">
+        <button class="chip active" data-layer-mode="composite">Composite</button>
+        <button class="chip" data-layer-mode="signal">Network Signal</button>
+        <button class="chip" data-layer-mode="healthcare">Healthcare</button>
+        <button class="chip" data-layer-mode="demographics">Demographics</button>
+        <button class="chip" data-layer-mode="real-estate">Real Estate</button>
+      </div>
+
+      <div id="map-legend" class="map-floating-legend"></div>
+
+      <div id="zip-detail-panel" class="zip-detail-panel hidden">
+        <div class="detail-topbar">
+          <p class="eyebrow">ZIP Details</p>
+          <button class="chip sm detail-close" id="close-zip-detail">✕ Close</button>
+        </div>
+        <h2 id="zip-detail-title">—</h2>
+        <div id="zip-summary" class="summary-grid empty-state">Search a ZIP code to see signal and market data.</div>
+      </div>
+    </section>
+
+    <div id="metric-cards" class="metric-bar"></div>
+    <div id="hero-board" style="display:none"></div>
+
+    <div class="content-grid">
+      <section class="panel compare-panel">
+        <div class="panel-head">
+          <div><p class="eyebrow">Compare</p><h2>Head-to-Head ZIP Scores</h2></div>
+        </div>
+        <form id="compare-form" class="inline-form">
+          <input id="compare-input" type="text" placeholder="e.g. 10001,30301,60601" />
+          <button class="primary" type="submit">Compare &amp; Plot</button>
+        </form>
+        <div id="compare-results" class="compare-grid empty-state">Enter comma-separated ZIPs and click Compare to rank and plot on the map.</div>
+      </section>
+
+      <section class="panel layers-panel">
+        <div class="panel-head">
+          <div><p class="eyebrow">Layers</p><h2>Data Catalog</h2></div>
+        </div>
+        <div id="layers-list" class="layer-stack"></div>
+      </section>
+    </div>
+
+    <div class="admin-accordion">
+      <button class="admin-toggle-btn" id="admin-toggle">
+        <span>⚙ Admin &amp; Operations</span>
+        <span id="admin-arrow">▼</span>
+      </button>
+      <div class="admin-content hidden" id="admin-panels">
+        <div class="admin-grid">
+
+          <section class="panel export-panel">
+            <div class="panel-head"><div><p class="eyebrow">Exports</p><h2>Dataset Delivery</h2></div></div>
+            <form id="export-form" class="inline-form">
+              <input id="dataset-input" type="text" value="signal_zip" placeholder="Dataset code" />
+              <button class="primary" type="submit">Queue Export</button>
+            </form>
+            <div class="subpanel-actions">
+              <button id="reload-exports" class="secondary">Reload Exports</button>
+              <button id="process-pending" class="secondary">Process Pending</button>
+            </div>
+            <div class="filter-grid">
+              <input id="exports-tenant-filter" type="text" placeholder="Tenant filter" />
+              <select id="exports-status-filter">
+                <option value="">All statuses</option>
+                <option value="queued">queued</option>
+                <option value="done">done</option>
+                <option value="failed">failed</option>
+              </select>
+              <button id="apply-exports-filter" class="secondary" type="button">Filter</button>
+            </div>
+            <input id="exports-search" type="text" placeholder="Search exports…" />
+            <div id="exports-list" class="table-card empty-state">No exports loaded.</div>
+            <div class="pager-row">
+              <button id="exports-prev" class="tiny" type="button">Prev</button>
+              <span id="exports-page-info" class="mono muted">Page 1</span>
+              <button id="exports-next" class="tiny" type="button">Next</button>
+            </div>
+          </section>
+
+          <section class="panel audit-panel">
+            <div class="panel-head"><div><p class="eyebrow">Admin</p><h2>Audit Feed</h2></div></div>
+            <div class="subpanel-actions">
+              <button id="reload-audit" class="secondary">Reload Audit</button>
+            </div>
+            <div class="filter-grid">
+              <label class="checkbox-row compact"><input id="auto-refresh-toggle" type="checkbox" /><span>Auto refresh</span></label>
+              <input id="auto-refresh-interval" type="number" min="5" step="5" value="20" />
+              <button id="apply-auto-refresh" class="secondary" type="button">Apply</button>
+            </div>
+            <div class="filter-grid">
+              <input id="audit-tenant-filter" type="text" placeholder="Tenant filter" />
+              <select id="audit-outcome-filter">
+                <option value="">All outcomes</option>
+                <option value="allowed">allowed</option>
+                <option value="denied">denied</option>
+              </select>
+              <button id="apply-audit-filter" class="secondary" type="button">Filter</button>
+            </div>
+            <div id="audit-list" class="table-card empty-state">Audit events will appear here.</div>
+            <div class="pager-row">
+              <button id="audit-prev" class="tiny" type="button">Prev</button>
+              <span id="audit-page-info" class="mono muted">Page 1</span>
+              <button id="audit-next" class="tiny" type="button">Next</button>
+            </div>
+          </section>
+
+          <section class="panel keys-panel">
+            <div class="panel-head"><div><p class="eyebrow">Keys</p><h2>API Key Admin</h2></div></div>
+            <form id="api-key-form" class="stack-form">
+              <input id="tenant-id-input" type="text" value="tenant-ui" placeholder="Tenant ID" />
+              <select id="plan-input">
+                <option value="basic">basic</option>
+                <option value="pro">pro</option>
+                <option value="enterprise">enterprise</option>
+              </select>
+              <input id="expiry-input" type="number" min="0" step="60" value="3600" placeholder="Expires in seconds" />
+              <button class="primary" type="submit">Create API Key</button>
+            </form>
+            <div class="subpanel-actions">
+              <button id="reload-keys" class="secondary">Reload Keys</button>
+            </div>
+            <div class="filter-grid">
+              <input id="keys-tenant-filter" type="text" placeholder="Tenant filter" />
+              <button id="apply-keys-filter" class="secondary" type="button">Filter</button>
+              <label class="checkbox-row compact"><input id="show-full-keys" type="checkbox" /><span>Show full keys</span></label>
+            </div>
+            <div id="api-keys-list" class="table-card empty-state">API keys will appear here.</div>
+          </section>
+
+          <section class="panel users-panel">
+            <div class="panel-head"><div><p class="eyebrow">Users</p><h2>User Admin</h2></div></div>
+            <form id="auth-user-form" class="stack-form">
+              <input id="auth-user-email" type="email" placeholder="Email" />
+              <input id="auth-user-password" type="password" placeholder="Password" />
+              <input id="auth-user-tenant" type="text" value="tenant-ui" placeholder="Tenant ID" />
+              <select id="auth-user-plan">
+                <option value="basic">basic</option>
+                <option value="pro" selected>pro</option>
+                <option value="enterprise">enterprise</option>
+              </select>
+              <button class="primary" type="submit">Create User</button>
+            </form>
+            <div class="subpanel-actions">
+              <button id="reload-users" class="secondary" type="button">Reload Users</button>
+            </div>
+            <div class="filter-grid">
+              <input id="users-tenant-filter" type="text" placeholder="Tenant filter" />
+              <button id="apply-users-filter" class="secondary" type="button">Filter</button>
+            </div>
+            <div id="auth-users-list" class="table-card empty-state">Users will appear here.</div>
+          </section>
+
+          <section class="panel activity-panel">
+            <div class="panel-head">
+              <div><p class="eyebrow">Live Feed</p><h2>Activity Timeline</h2></div>
+              <button id="export-activity-csv" class="secondary" type="button">Export CSV</button>
+            </div>
+            <input id="activity-search" type="text" placeholder="Search timeline…" />
+            <canvas id="tenant-trend" class="trend-canvas" aria-label="Tenant trend"></canvas>
+            <div id="activity-list" class="table-card empty-state">Recent actions will appear here.</div>
+          </section>
+
+          <section class="panel utility-panel">
+            <div class="panel-head"><div><p class="eyebrow">Utilities</p><h2>Power Actions</h2></div></div>
+            <div class="subpanel-actions">
+              <button id="export-exports-csv" class="secondary" type="button">Export Exports CSV</button>
+            </div>
+            <p class="muted">Shortcuts: R refresh · P process pending · E exports search · A activity search</p>
+          </section>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <template id="metric-card-template">
+    <article class="metric-card">
+      <span class="metric-label"></span>
+      <strong class="metric-value"></strong>
+      <small class="metric-note"></small>
+    </article>
+  </template>
+
+  <div id="toast-stack" class="toast-stack" aria-live="polite" aria-atomic="true"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script type="module" src="./app.js?v=20260619j"></script>
+</body>
+</html>
